@@ -7,7 +7,7 @@ permissions:
 
 on:
   schedule:
-    - cron: '0 */3 * * *' # every 6 hours
+    - cron: '0 */3 * * *' # 每 6 小时自动同步
   workflow_dispatch:
 
 jobs:
@@ -17,14 +17,21 @@ jobs:
     if: ${{ github.event.repository.fork }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
+      # 可选调试用：检查 PAT 是否设置
+      - name: Debug check PAT
+        run: echo "Token Length: ${#{{ secrets.PAT_TOKEN }}}"
+
+      # 自动关闭旧的同步失败 issue（标签为 🚨 Sync Fail）
       - name: Clean issue notice
         uses: actions-cool/issues-helper@v3
         with:
           actions: 'close-issues'
           labels: '🚨 Sync Fail'
 
+      # 执行同步操作
       - name: Sync upstream changes
         id: sync
         uses: aormsby/Fork-Sync-With-Upstream-action@v3.4
@@ -32,9 +39,10 @@ jobs:
           upstream_sync_repo: lobehub/lobe-chat
           upstream_sync_branch: main
           target_sync_branch: main
-          target_repo_token: ${{ secrets.PAT_TOKEN }}  # ✅ 使用你创建的 PAT Secret
+          target_repo_token: ${{ secrets.PAT_TOKEN }}  # 使用你的 PAT Token
           test_mode: false
 
+      # 如果同步失败，自动创建 issue 提醒你
       - name: Sync check
         if: failure()
         uses: actions-cool/issues-helper@v3
@@ -43,12 +51,11 @@ jobs:
           title: '🚨 同步失败 | Sync Fail'
           labels: '🚨 Sync Fail'
           body: |
-            Due to a change in the workflow file of the [LobeChat][lobechat] upstream repository, GitHub has automatically suspended the scheduled automatic update. You need to manually sync your fork. Please refer to the detailed [Tutorial][tutorial-en-US] for instructions.
+            ❌ 本次自动同步失败。可能是由于 `.github/workflows/*` 文件变动，GitHub 默认不允许 GITHUB_TOKEN 更新 workflow 文件。
 
-            由于 [LobeChat][lobechat] 上游仓库的 workflow 文件变更，导致 GitHub 自动暂停了本次自动更新，你需要手动 Sync Fork 一次，请查看 [详细教程][tutorial-zh-CN]
+            请检查你的 Personal Access Token 是否具备 `workflow` 权限，并参照以下教程手动同步一次：
 
-            ![](https://github-production-user-asset-6210df.s3.amazonaws.com/17870709/273954625-df80c890-0822-4ac2-95e6-c990785cbed5.png)
+            [📘 中文教程][tutorial-zh-CN] | [📙 English Tutorial][tutorial-en-US]
 
-            [lobechat]: https://github.com/lobehub/lobe-chat
             [tutorial-zh-CN]: https://github.com/lobehub/lobe-chat/wiki/Upstream-Sync.zh-CN
             [tutorial-en-US]: https://github.com/lobehub/lobe-chat/wiki/Upstream-Sync
